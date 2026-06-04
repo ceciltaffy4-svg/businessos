@@ -1,0 +1,54 @@
+appId: com.businessos.app
+productName: Business OS
+copyright: Copyright © 2026 Business OS
+directories:
+  buildResources: resources
+  output: dist
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{.eslintrc,.gitignore,tsconfig.*,postcss.config.js,tailwind.config.js}'
+  - '!.npmrc'
+extraResources:
+  - from: resources/
+    to: resources/
+    filter:
+      - '**/*'
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: ${productName}-${version}-setup-${arch}.${ext}
+  icon: resources/icon.png
+  certificateFile: ''
+  certificatePassword: ''
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Business OS
+  installerIcon: resources/icon.ico
+  uninstallerIcon: resources/icon.ico
+  installerHeaderIcon: resources/icon.ico
+  installerSidebar: resources/installer-sidebar.bmp
+  uninstallDisplayName: Business OS ${version}
+  license: LICENSE.txt
+  runAfterFinish: true
+  deleteAppDataOnUninstall: false
+
+publish:
+  provider: generic
+  url: https://updates.businessos.app
+  channel: latest
+  useMultipleRangeRequest: false
+
+asar: true
+asarUnpack:
+  - node_modules/better-sqlite3/**
+  - resources/**

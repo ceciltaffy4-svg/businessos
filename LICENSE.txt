@@ -1,0 +1,41 @@
+Business OS License Agreement
+============================
+
+Copyright (c) 2026 Business OS
+
+This License Agreement (the "Agreement") is a legal agreement between you
+("Licensee") and Business OS for the Business OS software product.
+
+1. GRANT OF LICENSE
+   Business OS grants the Licensee a non-exclusive, non-transferable license
+   to use the software on a single computer for business management purposes.
+
+2. ACTIVATION
+   This software requires a valid license key for activation. The license key
+   is tied to the machine's hardware identifier and may not be transferred to
+   another machine without deactivating on the original machine.
+
+3. RESTRICTIONS
+   Licensee may not:
+   - Sell, rent, lease, or sublicense the software
+   - Reverse engineer, decompile, or disassemble the software
+   - Remove or alter any proprietary notices
+   - Use the software for illegal purposes
+
+4. TERMINATION
+   This Agreement is effective until terminated. It terminates automatically
+   upon failure to comply with any term. Upon termination, Licensee must
+   destroy all copies of the software.
+
+5. DISCLAIMER OF WARRANTY
+   The software is provided "AS IS" without warranty of any kind. Business OS
+   disclaims all warranties, express or implied, including fitness for a
+   particular purpose.
+
+6. LIMITATION OF LIABILITY
+   Business OS shall not be liable for any damages arising from use of the
+   software.
+
+7. GOVERNING LAW
+   This Agreement shall be governed by the laws of the jurisdiction of
+   Business OS's principal place of business.
