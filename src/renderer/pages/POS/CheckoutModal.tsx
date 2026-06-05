@@ -48,14 +48,10 @@ export default function CheckoutModal({ open, onClose, onComplete }: CheckoutMod
       const payload = {
         items: items.map((i) => ({
           product_id: i.product_id,
-          sku: i.sku,
-          name: i.name,
-          unit: i.unit,
           quantity: i.quantity,
           unit_price: i.unit_price,
           discount: i.discount,
-          tax_rate: i.tax_rate,
-          stock_quantity: i.stock_quantity
+          tax_rate: i.tax_rate
         })),
         customer_id: customerId,
         employee_id: null,

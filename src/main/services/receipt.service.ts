@@ -1,4 +1,16 @@
-import type { PosCheckoutResult } from './pos.service'
+import { getDatabase } from '../database/connection'
+import type { PosCheckoutLineItem } from './pos.service'
+
+export interface PosCheckoutResult {
+  sale_id: string
+  invoice_number: string
+  grand_total: number
+  amount_paid: number
+  change_due: number
+  items: PosCheckoutLineItem[]
+  sale_date: string
+  customer_name?: string
+}
 
 export interface BusinessInfo {
   name: string
@@ -9,20 +21,28 @@ export interface BusinessInfo {
 }
 
 function getBusinessInfo(): BusinessInfo {
+  const db = getDatabase()
+  const settings = db
+    .prepare("SELECT key, value FROM app_settings WHERE key IN ('business_name', 'business_address', 'business_phone', 'business_email', 'business_tax_id')")
+    .all() as Array<{ key: string; value: string }>
+
+  const map: Record<string, string> = {}
+  for (const row of settings) {
+    map[row.key] = row.value
+  }
+
   return {
-    name: 'Your Business Name',
-    address: '123 Main Street, City',
-    phone: '+1-555-0000',
-    email: 'info@business.com',
-    tax_id: 'TAX-123456'
+    name: map['business_name'] || 'Your Business Name',
+    address: map['business_address'] || '123 Main Street, City',
+    phone: map['business_phone'] || '+1-555-0000',
+    email: map['business_email'] || 'info@business.com',
+    tax_id: map['business_tax_id'] || 'TAX-123456'
   }
 }
 
 export function generateReceiptHtml(result: PosCheckoutResult): string {
   const biz = getBusinessInfo()
   const date = new Date(result.sale_date).toLocaleString()
-  const totalPaid = result.amount_paid.toFixed(2)
-  const changeDue = result.change_due.toFixed(2)
   const itemsHtml = result.items
     .map(
       (item) => `
@@ -88,12 +108,11 @@ export function generateReceiptHtml(result: PosCheckoutResult): string {
     </table>
     <div class="divider"></div>
     <div class="totals">
-      <div class="totals-row"><span>Subtotal</span><span>$${result.grand_total.toFixed(2)}</span></div>
-      <div class="totals-row grand"><span>Total Paid</span><span>$${totalPaid}</span></div>
-      ${result.change_due > 0 ? `<div class="totals-row"><span>Change</span><span>$${changeDue}</span></div>` : ''}
+      <div class="totals-row grand"><span>Total Paid</span><span>$${result.amount_paid.toFixed(2)}</span></div>
+      ${result.change_due > 0 ? `<div class="totals-row"><span>Change</span><span>$${result.change_due.toFixed(2)}</span></div>` : ''}
     </div>
     <div class="payment">
-      Payment: Completed<br>
+      Payment: Completed
     </div>
     <div class="divider"></div>
     <div class="footer">

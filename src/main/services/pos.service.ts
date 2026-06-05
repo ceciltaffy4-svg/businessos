@@ -4,14 +4,10 @@ import { productRepo } from '../database/repositories'
 
 export interface PosCartItem {
   product_id: string
-  sku: string
-  name: string
-  unit: string
   quantity: number
   unit_price: number
   discount: number
   tax_rate: number
-  stock_quantity: number
 }
 
 export interface PosCheckoutInput {
@@ -25,31 +21,23 @@ export interface PosCheckoutInput {
   }>
 }
 
+export interface PosCheckoutLineItem {
+  name: string
+  sku: string
+  quantity: number
+  unit_price: number
+  total: number
+}
+
 export interface PosCheckoutResult {
   sale_id: string
   invoice_number: string
   grand_total: number
   amount_paid: number
   change_due: number
-  items: Array<{
-    name: string
-    sku: string
-    quantity: number
-    unit_price: number
-    total: number
-  }>
+  items: PosCheckoutLineItem[]
   sale_date: string
   customer_name?: string
-}
-
-function generateInvoiceNumber(db: ReturnType<typeof getDatabase>): string {
-  const year = new Date().getFullYear()
-  const count = (
-    db.prepare("SELECT COUNT(*) as count FROM sales WHERE strftime('%Y', sale_date) = ?").get(String(year)) as {
-      count: number
-    }
-  ).count
-  return `INV-${year}-${String(count + 1).padStart(4, '0')}`
 }
 
 export const posService = {
@@ -74,15 +62,24 @@ export const posService = {
     return productRepo.searchForPos(query)
   },
 
-  validateStock(items: PosCartItem[]): { valid: boolean; errors: string[] } {
+  validateStock(
+    items: Array<{ product_id: string; quantity: number }>
+  ): { valid: boolean; errors: string[] } {
     const errors: string[] = []
     for (const item of items) {
-      if (item.quantity <= 0) {
-        errors.push(`Quantity for "${item.name}" must be positive`)
+      const product = productRepo.findById(item.product_id)
+      if (!product) {
+        errors.push(`Product ${item.product_id} not found`)
         continue
       }
-      if (item.quantity > item.stock_quantity) {
-        errors.push(`Insufficient stock for "${item.name}". Available: ${item.stock_quantity}, requested: ${item.quantity}`)
+      if (item.quantity <= 0) {
+        errors.push(`Quantity for "${product.name}" must be positive`)
+        continue
+      }
+      if (item.quantity > product.stock_quantity) {
+        errors.push(
+          `Insufficient stock for "${product.name}". Available: ${product.stock_quantity}, requested: ${item.quantity}`
+        )
       }
     }
     return { valid: errors.length === 0, errors }
@@ -96,7 +93,6 @@ export const posService = {
 
     const db = getDatabase()
     const saleId = uuid()
-    const invoiceNumber = generateInvoiceNumber(db)
     const now = new Date().toISOString()
 
     let subtotal = 0
@@ -113,13 +109,23 @@ export const posService = {
 
     const grandTotal = subtotal - discountTotal + taxTotal
     const totalPaid = input.payments.reduce((sum, p) => sum + p.amount, 0)
-    const changeDue = Math.max(0, totalPaid - grandTotal)
+
+    let invoiceNumber = ''
+    let receiptItems: PosCheckoutLineItem[] = []
 
     const transaction = db.transaction(() => {
+      const year = new Date().getFullYear()
+      const count = (
+        db.prepare("SELECT COUNT(*) as count FROM sales WHERE strftime('%Y', sale_date) = ?").get(String(year)) as {
+          count: number
+        }
+      ).count
+      invoiceNumber = `INV-${year}-${String(count + 1).padStart(4, '0')}`
+
       db.prepare(
         `INSERT INTO sales (id, invoice_number, customer_id, employee_id, sale_date,
            status, subtotal, tax_total, discount_total, grand_total, amount_paid, payment_status, notes)
-         VALUES (?, ?, ?, ?, ?, 'completed', ?, ?, ?, ?, ?, ?, ?)`
+         VALUES (?, ?, ?, ?, ?, 'completed', ?, ?, ?, ?, ?, 'paid', ?)`
       ).run(
         saleId,
         invoiceNumber,
@@ -131,11 +137,15 @@ export const posService = {
         discountTotal,
         grandTotal,
         grandTotal,
-        'paid',
         input.notes ?? ''
       )
 
       for (const item of input.items) {
+        const product = db.prepare('SELECT name, sku FROM products WHERE id = ?').get(item.product_id) as
+          | { name: string; sku: string }
+          | undefined
+        if (!product) throw new Error(`Product ${item.product_id} not found`)
+
         const itemId = uuid()
         const itemTax = item.quantity * item.unit_price * (item.tax_rate / 100)
         db.prepare(
@@ -147,6 +157,14 @@ export const posService = {
           item.quantity,
           item.product_id
         )
+
+        receiptItems.push({
+          name: product.name,
+          sku: product.sku,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total: item.quantity * item.unit_price - item.discount
+        })
       }
 
       for (const payment of input.payments) {
@@ -156,6 +174,11 @@ export const posService = {
            VALUES (?, ?, ?, ?, ?)`
         ).run(paymentId, saleId, payment.amount, now, payment.payment_method)
       }
+
+      db.prepare(
+        `INSERT INTO audit_log (id, entity_type, entity_id, action, changes, created_at)
+         VALUES (?, 'sale', ?, 'create', ?, ?)`
+      ).run(uuid(), saleId, JSON.stringify({ invoice_number: invoiceNumber }), now)
     })
 
     transaction()
@@ -168,20 +191,12 @@ export const posService = {
       customerName = customer?.name
     }
 
-    const receiptItems = input.items.map((item) => ({
-      name: item.name,
-      sku: item.sku,
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      total: item.quantity * item.unit_price - item.discount
-    }))
-
     return {
       sale_id: saleId,
       invoice_number: invoiceNumber,
       grand_total: grandTotal,
       amount_paid: totalPaid,
-      change_due: changeDue,
+      change_due: Math.max(0, totalPaid - grandTotal),
       items: receiptItems,
       sale_date: now,
       customer_name: customerName

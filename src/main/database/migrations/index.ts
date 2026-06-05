@@ -1,7 +1,8 @@
 import type Database from 'better-sqlite3'
 import { migration001 } from './001_initial'
+import { migration002 } from './002_indexes_settings'
 
-const migrations = [migration001]
+const migrations = [migration001, migration002]
 
 export function runMigrations(db: Database.Database): void {
   db.exec(`

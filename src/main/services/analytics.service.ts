@@ -64,8 +64,10 @@ export interface ProfitEstimate {
 export const analyticsService = {
   getDashboardOverview(): DashboardOverview {
     const db = getDatabase()
-    const today = new Date().toISOString().slice(0, 10)
-    const weekStart = new Date()
+    const now = new Date()
+    const today = now.toISOString().slice(0, 10)
+
+    const weekStart = new Date(now)
     weekStart.setDate(weekStart.getDate() - weekStart.getDay())
     const weekStartStr = weekStart.toISOString().slice(0, 10)
 
@@ -132,21 +134,17 @@ export const analyticsService = {
 
   getDailySales(days = 30): DailySalesRow[] {
     const db = getDatabase()
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - days)
-    const start = startDate.toISOString().slice(0, 10)
-
     return db
       .prepare(
         `SELECT date(sale_date) as date,
                 COALESCE(SUM(grand_total), 0) as total,
                 COUNT(*) as count
          FROM sales
-         WHERE date(sale_date) >= ? AND status != 'cancelled'
+         WHERE sale_date >= date('now', '-' || ? || ' days') AND status != 'cancelled'
          GROUP BY date(sale_date)
          ORDER BY date ASC`
       )
-      .all(start) as DailySalesRow[]
+      .all(String(days)) as DailySalesRow[]
   },
 
   getWeeklySales(weeks = 12): MonthlySalesRow[] {
@@ -157,11 +155,11 @@ export const analyticsService = {
                 COALESCE(SUM(grand_total), 0) as total,
                 COUNT(*) as count
          FROM sales
-         WHERE sale_date >= date('now', ? || ' weeks') AND status != 'cancelled'
+         WHERE sale_date >= date('now', '-' || ? || ' days') AND status != 'cancelled'
          GROUP BY month
          ORDER BY month ASC`
       )
-      .all(`-${weeks * 7}`) as MonthlySalesRow[]
+      .all(String(weeks * 7)) as MonthlySalesRow[]
   },
 
   getMonthlySales(months = 12): MonthlySalesRow[] {
@@ -185,7 +183,7 @@ export const analyticsService = {
       .prepare(
         `SELECT p.id as product_id, p.name, p.sku,
                 SUM(si.quantity) as quantity_sold,
-                SUM(si.quantity * si.unit_price) as revenue
+                SUM(si.total) as revenue
          FROM sale_items si
          JOIN sales s ON s.id = si.sale_id AND s.status != 'cancelled'
          JOIN products p ON p.id = si.product_id
@@ -213,7 +211,7 @@ export const analyticsService = {
     const db = getDatabase()
     const total = db
       .prepare(
-        `SELECT COALESCE(SUM(amount), 0) as total
+        `SELECT COALESCE(SUM(amount + tax_amount), 0) as total
          FROM expenses
          WHERE expense_date >= date('now', '-' || ? || ' months')`
       )
@@ -222,7 +220,7 @@ export const analyticsService = {
     const rows = db
       .prepare(
         `SELECT category,
-                COALESCE(SUM(amount), 0) as total,
+                COALESCE(SUM(amount + tax_amount), 0) as total,
                 COUNT(*) as count
          FROM expenses
          WHERE expense_date >= date('now', '-' || ? || ' months')
@@ -261,7 +259,7 @@ export const analyticsService = {
 
     const expenses = db
       .prepare(
-        `SELECT COALESCE(SUM(amount), 0) as total
+        `SELECT COALESCE(SUM(amount + tax_amount), 0) as total
          FROM expenses
          WHERE expense_date >= date('now', '-' || ? || ' months')`
       )

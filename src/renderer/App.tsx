@@ -3,7 +3,7 @@ import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import ProductList from './pages/Products'
 import CustomersRouter from './pages/Customers'
-import SaleList from './pages/Sales'
+import SalesRouter from './pages/Sales'
 import ExpenseList from './pages/Expenses'
 import EmployeeList from './pages/Employees'
 import PosTerminal from './pages/POS'
@@ -21,7 +21,7 @@ export default function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/products" element={<ProductList />} />
               <Route path="/customers/*" element={<CustomersRouter />} />
-              <Route path="/sales" element={<SaleList />} />
+              <Route path="/sales/*" element={<SalesRouter />} />
               <Route path="/expenses" element={<ExpenseList />} />
               <Route path="/employees" element={<EmployeeList />} />
               <Route path="/ai" element={<AiAssistant />} />
